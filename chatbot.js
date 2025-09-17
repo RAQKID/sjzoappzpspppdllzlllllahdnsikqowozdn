@@ -1,0 +1,137 @@
+const express = require("express");
+const axios = require("axios");
+require("dotenv").config();
+
+const app = express();
+app.set("json spaces", 2); // ✅ pretty-print JSON with 2 spaces
+const PORT = process.env.PORT || 3000;
+
+const API_KEY = process.env.API_KEY;   // OpenRouter
+const API_KEY2 = process.env.API_KEY2; // Cerebras (Qwen)
+const API_KEY3 = process.env.API_KEY3; // AIML (Gemma)
+
+// ---------------- OpenRouter ----------------
+async function askOpenRouter(model, prompt) {
+  const response = await axios.post(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      model,
+      messages: [{ role: "user", content: prompt }],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  return response.data.choices[0].message.content;
+}
+
+// ---------------- Cerebras (Qwen) ----------------
+async function askCerebras(model, prompt) {
+  const response = await axios.post(
+    "https://api.cerebras.ai/v1/chat/completions",
+    {
+      model,
+      messages: [{ role: "user", content: prompt }],
+      max_completion_tokens: 8192,
+      temperature: 0.7,
+      top_p: 0.8,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${API_KEY2}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  return response.data.choices[0].message.content;
+}
+
+// ---------------- AIML API (Gemma) ----------------
+async function askAIML(model, prompt) {
+  const response = await axios.post(
+    "https://api.aimlapi.com/v1/chat/completions",
+    {
+      model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 1.9,
+      top_p: 1,
+      frequency_penalty: 1.9,
+      max_tokens: 1536,
+      top_k: 100,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${API_KEY3}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  return response.data.choices[0].message.content;
+}
+
+// ---------------- Routes ----------------
+
+// Root route
+app.get("/", (req, res) => {
+  res.send("The server is running");
+});
+
+// DeepSeek (OpenRouter)
+app.get("/deepseek", async (req, res) => {
+  const prompt = req.query.prompt;
+  if (!prompt) return res.status(400).json({ status: false, error: "Prompt is required" });
+  try {
+    const reply = await askOpenRouter("deepseek/deepseek-chat-v3.1:free", prompt);
+    res.json({ status: true, result: [{ response: reply }] });
+  } catch (error) {
+    console.error("DeepSeek Error:", error.response?.data || error.message);
+    res.status(500).json({ status: false, error: "DeepSeek request failed" });
+  }
+});
+
+// Nemotron (OpenRouter)
+app.get("/nemotron", async (req, res) => {
+  const prompt = req.query.prompt;
+  if (!prompt) return res.status(400).json({ status: false, error: "Prompt is required" });
+  try {
+    const reply = await askOpenRouter("nvidia/nemotron-nano-9b-v2:free", prompt);
+    res.json({ status: true, result: [{ response: reply }] });
+  } catch (error) {
+    console.error("Nemotron Error:", error.response?.data || error.message);
+    res.status(500).json({ status: false, error: "Nemotron request failed" });
+  }
+});
+
+// Qwen (Cerebras)
+app.get("/qwen", async (req, res) => {
+  const prompt = req.query.prompt;
+  if (!prompt) return res.status(400).json({ status: false, error: "Prompt is required" });
+  try {
+    const reply = await askCerebras("qwen-3-235b-a22b-instruct-2507", prompt);
+    res.json({ status: true, result: [{ response: reply }] });
+  } catch (error) {
+    console.error("Qwen Error:", error.response?.data || error.message);
+    res.status(500).json({ status: false, error: "Qwen request failed" });
+  }
+});
+
+// Gemma (AIML API)
+app.get("/gemma", async (req, res) => {
+  const prompt = req.query.prompt;
+  if (!prompt) return res.status(400).json({ status: false, error: "Prompt is required" });
+  try {
+    const reply = await askAIML("google/gemma-3-4b-it", prompt);
+    res.json({ status: true, result: [{ response: reply }] });
+  } catch (error) {
+    console.error("Gemma Error:", error.response?.data || error.message);
+    res.status(500).json({ status: false, error: "Gemma request failed" });
+  }
+});
+
+// ---------------- Start Server ----------------
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
