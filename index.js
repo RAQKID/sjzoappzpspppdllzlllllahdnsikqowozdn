@@ -1,5 +1,7 @@
 const express = require("express");
 const axios = require("axios");
+const { createServer } = require("http");
+const { parse } = require("url");
 require("dotenv").config();
 
 const app = express();
@@ -63,6 +65,7 @@ app.get("/deepseek", async (req, res) => {
     const reply = await askOpenRouter("deepseek/deepseek-chat-v3.1:free", prompt);
     res.json({ status: true, result: [{ response: reply }] });
   } catch (err) {
+    console.error("DeepSeek Error:", err.response?.data || err.message);
     res.status(500).json({ status: false, error: "DeepSeek request failed" });
   }
 });
@@ -74,6 +77,7 @@ app.get("/nemotron", async (req, res) => {
     const reply = await askOpenRouter("nvidia/nemotron-nano-9b-v2:free", prompt);
     res.json({ status: true, result: [{ response: reply }] });
   } catch (err) {
+    console.error("Nemotron Error:", err.response?.data || err.message);
     res.status(500).json({ status: false, error: "Nemotron request failed" });
   }
 });
@@ -85,6 +89,7 @@ app.get("/qwen", async (req, res) => {
     const reply = await askCerebras("qwen-3-235b-a22b-instruct-2507", prompt);
     res.json({ status: true, result: [{ response: reply }] });
   } catch (err) {
+    console.error("Qwen Error:", err.response?.data || err.message);
     res.status(500).json({ status: false, error: "Qwen request failed" });
   }
 });
@@ -96,9 +101,13 @@ app.get("/gemma", async (req, res) => {
     const reply = await askAIML("google/gemma-3-4b-it", prompt);
     res.json({ status: true, result: [{ response: reply }] });
   } catch (err) {
+    console.error("Gemma Error:", err.response?.data || err.message);
     res.status(500).json({ status: false, error: "Gemma request failed" });
   }
 });
 
-// ---------------- Export for Vercel ----------------
-module.exports = app;￼Enter
+// ---------------- Vercel Handler ----------------
+module.exports = (req, res) => {
+  const parsedUrl = parse(req.url, true);
+  app(req, res, parsedUrl);
+};
